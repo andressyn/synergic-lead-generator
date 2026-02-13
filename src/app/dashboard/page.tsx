@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -407,12 +406,12 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="border-b bg-[#482aff] sticky top-0 z-40">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/assets/synergic-logo-white.svg"
             alt="Synergic"
             width={140}
             height={44}
-            priority
           />
           <Button
             variant="outline"
