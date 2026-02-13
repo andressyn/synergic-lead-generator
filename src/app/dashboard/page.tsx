@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
 import {
   Card,
   CardContent,
@@ -41,6 +41,12 @@ interface Place {
   website: string;
   mapsUrl: string;
   types: string[];
+  openNow: boolean | null;
+}
+
+interface Suggestion {
+  description: string;
+  placeId: string;
 }
 
 export default function DashboardPage() {
@@ -52,6 +58,57 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleLocationChange(value: string) {
+    setLocation(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (value.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/autocomplete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input: value }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data.suggestions || []);
+          setShowSuggestions((data.suggestions || []).length > 0);
+        }
+      } catch {
+        // silently fail
+      }
+    }, 300);
+  }
+
+  function selectSuggestion(suggestion: Suggestion) {
+    setLocation(suggestion.description);
+    setSuggestions([]);
+    setShowSuggestions(false);
+  }
+
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!location.trim()) return;
@@ -59,6 +116,7 @@ export default function DashboardPage() {
     setLoading(true);
     setSearched(true);
     setSelected(new Set());
+    setShowSuggestions(false);
 
     try {
       const queries: string[] = [];
@@ -89,7 +147,6 @@ export default function DashboardPage() {
         }
       }
 
-      // Deduplicate by place id
       const unique = Array.from(
         new Map(allResults.map((p) => [p.id, p])).values()
       );
@@ -173,7 +230,7 @@ export default function DashboardPage() {
         p.website || "N/A",
       ]),
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [23, 23, 23] },
+      headStyles: { fillColor: [72, 42, 255] },
     });
 
     doc.save("leads.pdf");
@@ -214,18 +271,29 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/50">
+    <div className="min-h-screen bg-muted/30">
       {/* Header */}
-      <header className="border-b bg-background">
+      <header className="border-b bg-[#482aff]">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold">Synergic Lead Generator</h1>
-          <Button variant="outline" size="sm" onClick={handleLogout}>
+          <Image
+            src="/assets/synergic-logo-white.svg"
+            alt="Synergic"
+            width={140}
+            height={44}
+            priority
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+          >
             Logout
           </Button>
         </div>
       </header>
 
-      <main className="container mx-auto p-4 space-y-6">
+      <main className="container mx-auto p-4 space-y-6 mt-2">
         {/* Search Panel */}
         <Card>
           <CardHeader>
@@ -236,15 +304,31 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
-              <div className="space-y-2 flex-1">
+              {/* Location with autocomplete */}
+              <div className="space-y-2 flex-1 relative" ref={wrapperRef}>
                 <Label htmlFor="location">Location</Label>
                 <Input
                   id="location"
                   placeholder="e.g. Los Angeles, CA"
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                   required
+                  autoComplete="off"
                 />
+                {showSuggestions && suggestions.length > 0 && (
+                  <ul className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                    {suggestions.map((s) => (
+                      <li
+                        key={s.placeId}
+                        className="px-3 py-2 text-sm cursor-pointer hover:bg-accent transition-colors"
+                        onMouseDown={() => selectSuggestion(s)}
+                      >
+                        {s.description}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div className="space-y-2 w-full sm:w-48">
                 <Label>Industry</Label>
@@ -315,6 +399,7 @@ export default function DashboardPage() {
                         <TableHead>Address</TableHead>
                         <TableHead>Phone</TableHead>
                         <TableHead>Rating</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Website</TableHead>
                         <TableHead>Map</TableHead>
                       </TableRow>
@@ -341,6 +426,15 @@ export default function DashboardPage() {
                             {place.rating ? (
                               <Badge variant="secondary">
                                 {place.rating} ({place.userRatingsTotal})
+                              </Badge>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {place.openNow !== null ? (
+                              <Badge variant={place.openNow ? "default" : "secondary"}>
+                                {place.openNow ? "Open" : "Closed"}
                               </Badge>
                             ) : (
                               "—"

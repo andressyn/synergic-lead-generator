@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,7 +51,18 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/50 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Synergic</CardTitle>
+          <div className="flex justify-center mb-4">
+            <div className="bg-[#482aff] rounded-xl px-6 py-4">
+              <Image
+                src="/assets/synergic-logo-white.svg"
+                alt="Synergic"
+                width={160}
+                height={50}
+                priority
+              />
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-bold">Lead Generator</CardTitle>
           <CardDescription>
             Sign in to access the lead generator
           </CardDescription>

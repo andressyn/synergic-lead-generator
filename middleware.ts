@@ -10,7 +10,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Unauthenticated user trying to access protected routes → redirect to login
-  const protectedPaths = ["/dashboard", "/api/search"];
+  const protectedPaths = ["/dashboard", "/api/search", "/api/autocomplete"];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
   if (isProtected && token !== "authenticated") {
@@ -24,5 +24,10 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/api/search/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/login",
+    "/api/search/:path*",
+    "/api/autocomplete/:path*",
+  ],
 };

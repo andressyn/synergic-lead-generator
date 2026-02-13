@@ -11,6 +11,8 @@ interface GooglePlace {
   websiteUri?: string;
   googleMapsUri?: string;
   types?: string[];
+  businessStatus?: string;
+  currentOpeningHours?: { openNow?: boolean };
 }
 
 export async function POST(request: NextRequest) {
@@ -40,12 +42,25 @@ export async function POST(request: NextRequest) {
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": apiKey,
-          "X-Goog-FieldMask":
-            "places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.internationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,places.googleMapsUri,places.types",
+          "X-Goog-FieldMask": [
+            "places.id",
+            "places.displayName",
+            "places.formattedAddress",
+            "places.nationalPhoneNumber",
+            "places.internationalPhoneNumber",
+            "places.rating",
+            "places.userRatingCount",
+            "places.websiteUri",
+            "places.googleMapsUri",
+            "places.types",
+            "places.businessStatus",
+            "places.currentOpeningHours",
+          ].join(","),
         },
         body: JSON.stringify({
           textQuery: query,
           maxResultCount: 20,
+          rankPreference: "RELEVANCE",
         }),
       }
     );
@@ -62,17 +77,33 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     const places: GooglePlace[] = data.places || [];
 
-    const results = places.map((place) => ({
-      id: place.id,
-      name: place.displayName?.text || "Unknown",
-      address: place.formattedAddress || "",
-      phone: place.internationalPhoneNumber || place.nationalPhoneNumber || "",
-      rating: place.rating ?? null,
-      userRatingsTotal: place.userRatingCount ?? null,
-      website: place.websiteUri || "",
-      mapsUrl: place.googleMapsUri || "",
-      types: place.types || [],
-    }));
+    // Filter to operational businesses and sort by rating * reviews for warmest leads
+    const results = places
+      .filter((p) => !p.businessStatus || p.businessStatus === "OPERATIONAL")
+      .map((place) => ({
+        id: place.id,
+        name: place.displayName?.text || "Unknown",
+        address: place.formattedAddress || "",
+        phone: place.internationalPhoneNumber || place.nationalPhoneNumber || "",
+        rating: place.rating ?? null,
+        userRatingsTotal: place.userRatingCount ?? null,
+        website: place.websiteUri || "",
+        mapsUrl: place.googleMapsUri || "",
+        types: place.types || [],
+        openNow: place.currentOpeningHours?.openNow ?? null,
+      }))
+      .sort((a, b) => {
+        // Prioritize leads with phone + website (warmest), then by rating score
+        const aScore =
+          (a.phone ? 2 : 0) +
+          (a.website ? 2 : 0) +
+          (a.rating ?? 0) * ((a.userRatingsTotal ?? 0) > 0 ? 1 : 0);
+        const bScore =
+          (b.phone ? 2 : 0) +
+          (b.website ? 2 : 0) +
+          (b.rating ?? 0) * ((b.userRatingsTotal ?? 0) > 0 ? 1 : 0);
+        return bScore - aScore;
+      });
 
     return NextResponse.json({ results });
   } catch (error) {
