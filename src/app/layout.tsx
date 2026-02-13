@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import SessionProvider from "@/components/session-provider";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Synergic Lead Generator",
-  description: "Find moving companies and warehouse leads using Google Places",
+  description: "Find fleet management leads using Google Places",
 };
 
 export default function RootLayout({
@@ -16,7 +17,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <SessionProvider>{children}</SessionProvider>
+      </body>
     </html>
   );
 }

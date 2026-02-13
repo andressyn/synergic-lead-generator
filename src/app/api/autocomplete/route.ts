@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           input,
           includedPrimaryTypes: ["locality", "sublocality", "administrative_area_level_1", "postal_code"],
+          includedRegionCodes: ["us", "ca"],
         }),
       }
     );
